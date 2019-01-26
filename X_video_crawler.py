@@ -12,26 +12,25 @@ cur_page = 0
 #线程的数量
 num_thread = 10
 #下载的视频的质量 可选为360p 720p 1080p
-quality = "1080p"
+quality = "720p"
 #视频的至少时间长度 单位:min
-least_time = 5
+least_time = 30
 
 def headers_make(url_str):
 	return {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36Name','Referer':url_str}
 
-def get_pron_time(respon):
-	time=re.findall(r'"duration">(.*?)<',respon.content.decode('utf-8'))
-	if 'h' in time[0]:
-		time=re.findall(r'\d+',time[0])
-		if 'm' in time[0]:
+def get_pron_time(duration):
+	if 'h' in duration:
+		time=re.findall(r'\d+',duration)
+		if 'm' in duration:
 			time = int(time[0])*60 + int(time[1])
 		else:
 			time = int(time[0])*60
-	elif 'm' in time[0]:
-		time=re.findall(r'\d+',time[0])
+	elif 'm' in duration:
+		time=re.findall(r'\d+',duration)
 		time = int(time[0])
 	else:
-		time=re.findall(r'\d+',time[0])
+		time=re.findall(r'\d+',duration)
 		time = int(time[0]) // 60
 	return time
 
@@ -79,9 +78,9 @@ while cur_page < 100:
 		#没有办法，它就是有的会是none，比如480p的就没有标出来
 		if content.previous_sibling.span != None:
 			if content.previous_sibling.span.string == quality:
-				video_respon = requests.get(video_url,headers=headers_make(video_url))								#打开当前视频的地址
-				time = get_pron_time(video_respon)
+				time = get_pron_time(content.select('.duration')[0].string)
 				if time > least_time:
+					video_respon = requests.get(video_url,headers=headers_make(video_url))							#打开当前视频的地址
 					m3u8_url=re.findall(r".setVideoHLS.*?'(.*?)'",video_respon.content.decode('utf-8'))				#得到包含所有清晰度m3u8的指向文件
 					base_m3u8_url = re.findall(r"(.*?)hls.m3u8",m3u8_url[0])										#得到base_url
 					HD_m3u8_url = m3u8_url[0].replace('hls.','hls-'+quality+'.')									#选取出要下载的quality的m3u8文件文件地址
