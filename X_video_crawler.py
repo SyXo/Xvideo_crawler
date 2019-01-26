@@ -14,7 +14,9 @@ num_thread = 10
 #下载的视频的质量 可选为360p 720p 1080p
 quality = "720p"
 #视频的至少时间长度 单位:min
-least_time = 30
+least_time = 58
+#进度计数
+count =0;
 
 def headers_make(url_str):
 	return {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36Name','Referer':url_str}
@@ -35,19 +37,30 @@ def get_pron_time(duration):
 	return time
 
 def thread_Handler(start, end, part, ts_url_list):
+	list_len = len(ts_url_list)
 	for ts_url in ts_url_list[start:end]:
-		download_ts_file(ts_url,str(start // part) + ".ts")
+		download_ts_file(ts_url,str(start // part) + ".ts",list_len)
 
-def download_ts_file(ts_url,title):
+status_ok = 1
+def download_ts_file(ts_url,title,list_len):
 	retry_times =0
+	global count
+	global status_ok
 	while retry_times < retry:
 		try:
 			ts_file = requests.get(ts_url, headers = {'Connection':'close'}, timeout=timeout)
 			with open(title, 'ab') as f:
 				f.write(ts_file.content)
 				f.flush()
+			count =count+1
+			print("\r下载进度：%.2f%%" %(count/list_len*100), end = '')
+			status_ok = 1
 			break
 		except:
+			#emmmmm为的是打断进度打印的时候第一次可以换行从而不挨着人家进度
+			if(status_ok):
+				print()
+				status_ok = 0
 			print(ts_url[:ts_url.find(".ts?")].split("/")[-1] + " fail and retry %d" %retry_times)				#打印是哪个ts fail
 			pass
 		retry_times += 1
@@ -84,7 +97,7 @@ while cur_page < 100:
 					m3u8_url=re.findall(r".setVideoHLS.*?'(.*?)'",video_respon.content.decode('utf-8'))				#得到包含所有清晰度m3u8的指向文件
 					base_m3u8_url = re.findall(r"(.*?)hls.m3u8",m3u8_url[0])										#得到base_url
 					HD_m3u8_url = m3u8_url[0].replace('hls.','hls-'+quality+'.')									#选取出要下载的quality的m3u8文件文件地址
-					print("begin to download %s quality: %s video duration:%d" %(title,quality,time))
+					print("begin to download %s quality: %s video duration:%d min" %(title,quality,time))
 					time_start = datetime.datetime.now().replace(microsecond=0)
 					HD_m3u8_respon = requests.get(HD_m3u8_url,headers=headers_make(HD_m3u8_url))					#打开HD的m3u8文件地址
 					ts_url_list = []
@@ -116,14 +129,15 @@ while cur_page < 100:
 							continue
 						t.join()
 					print('%s 下载完成' %title)
+					count = 0
 					shell_str = [str(each)+".ts" for each in list(range(num_thread))]
 					shell_str = '+'.join(shell_str)
 					shell_str = 'copy /b '+ shell_str + ' ' + title.replace(' ','').replace("\u3000","")
 					os.system(shell_str)
 					os.system('del /Q *.ts')
 					time_end = datetime.datetime.now().replace(microsecond=0)
-					print("用时: ", end='')
-					print(time_end-time_start)
+					print("用时: %s" %(str(time_end-time_start)))
+
 	cur_page += 1
 	base_page = Xvideo_page + str(cur_page)
 print("done")
